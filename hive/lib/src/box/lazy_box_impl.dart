@@ -1,10 +1,16 @@
+// ignore_for_file: invalid_use_of_protected_member
+// ignore_for_file: invalid_use_of_visible_for_testing_member
+
 import 'package:hive/hive.dart';
 import 'package:hive/src/backend/storage_backend.dart';
 import 'package:hive/src/binary/frame.dart';
-import 'package:hive/src/box/box_base.dart';
+import 'package:hive/src/box/box_base_impl.dart';
+import 'package:hive/src/object/hive_object.dart';
 import 'package:hive/src/hive_impl.dart';
 
-class LazyBoxImpl extends BoxBase implements LazyBox {
+/// Not part of public API
+class LazyBoxImpl<E> extends BoxBaseImpl<E> implements LazyBox<E> {
+  /// Not part of public API
   LazyBoxImpl(
     HiveImpl hive,
     String name,
@@ -17,28 +23,25 @@ class LazyBoxImpl extends BoxBase implements LazyBox {
   final bool lazy = true;
 
   @override
-  Iterable get values =>
-      throw UnsupportedError('Only non-lazy boxes have this property.');
-
-  @override
-  Future<dynamic> get(dynamic key, {dynamic defaultValue}) async {
+  Future<E> get(dynamic key, {E defaultValue}) async {
     checkOpen();
 
     var frame = keystore.get(key);
 
     if (frame != null) {
-      return await backend.readValue(frame);
+      var value = await backend.readValue(frame);
+      if (value is HiveObject) {
+        value.init(key, this);
+      }
+      return value as E;
     } else {
       return defaultValue;
     }
   }
 
   @override
-  Future<dynamic> getAt(int index) async {
-    checkOpen();
-
-    var frame = keystore.getAt(index);
-    return await backend.readValue(frame);
+  Future<E> getAt(int index) {
+    return get(keystore.keyAt(index));
   }
 
   @override
@@ -57,11 +60,10 @@ class LazyBoxImpl extends BoxBase implements LazyBox {
     await backend.writeFrames(frames);
 
     for (var frame in frames) {
-      keystore.insert(Frame.lazy(
-        frame.key,
-        length: frame.length,
-        offset: frame.offset,
-      ));
+      if (frame.value is HiveObject) {
+        (frame.value as HiveObject).init(frame.key, this);
+      }
+      keystore.insert(frame.toLazy());
     }
 
     await performCompactionIfNeeded();
@@ -86,10 +88,5 @@ class LazyBoxImpl extends BoxBase implements LazyBox {
     }
 
     await performCompactionIfNeeded();
-  }
-
-  @override
-  Map<dynamic, dynamic> toMap() {
-    throw UnsupportedError('Only non-lazy boxes support toMap().');
   }
 }

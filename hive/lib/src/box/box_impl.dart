@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:hive/hive.dart';
 import 'package:hive/src/backend/storage_backend.dart';
 import 'package:hive/src/binary/frame.dart';
-import 'package:hive/src/box/box_base.dart';
+import 'package:hive/src/box/box_base_impl.dart';
 import 'package:hive/src/hive_impl.dart';
 
-class BoxImpl<E> extends BoxBase<E> {
+/// Not part of public API
+class BoxImpl<E> extends BoxBaseImpl<E> implements Box<E> {
+  /// Not part of public API
   BoxImpl(
     HiveImpl hive,
     String name,
@@ -23,6 +25,13 @@ class BoxImpl<E> extends BoxBase<E> {
     checkOpen();
 
     return keystore.getValues();
+  }
+
+  @override
+  Iterable<E> valuesBetween({dynamic startKey, dynamic endKey}) {
+    checkOpen();
+
+    return keystore.getValuesBetween(startKey, endKey);
   }
 
   @override

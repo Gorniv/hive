@@ -17,11 +17,11 @@ Future _performTest(bool lazy) async {
     await box.put('byteList$i', byteList);
   }
 
-  box = await reopenBox(box);
+  box = await box.reopen();
   for (var i = 0; i < 5; i++) {
-    var readStringList = await box.get('stringList$i');
-    var readDoubleList = await box.get('doubleList$i');
-    var readByteList = await box.get('byteList$i');
+    var readStringList = await await box.get('stringList$i');
+    var readDoubleList = await await box.get('doubleList$i');
+    var readByteList = await await box.get('byteList$i');
 
     expect(readStringList, stringList);
     expect(readDoubleList, doubleList);

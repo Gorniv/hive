@@ -3,40 +3,42 @@ import 'dart:typed_data';
 
 import 'package:hive/hive.dart';
 import 'package:hive/src/binary/binary_reader_impl.dart';
-import 'package:hive/src/binary/frame.dart';
 import 'package:hive/src/binary/frame_helper.dart';
 import 'package:hive/src/box/keystore.dart';
-import 'package:hive/src/crypto_helper.dart';
 import 'package:hive/src/io/buffered_file_reader.dart';
-import 'package:hive/src/util/crc32.dart';
 import 'package:meta/meta.dart';
 
+/// Not part of public API
 class FrameIoHelper extends FrameHelper {
+  /// Not part of public API
   @visibleForTesting
   Future<RandomAccessFile> openFile(String path) {
     return File(path).open();
   }
 
+  /// Not part of public API
   @visibleForTesting
   Future<List<int>> readFile(String path) {
     return File(path).readAsBytes();
   }
 
+  /// Not part of public API
   Future<int> keysFromFile(
-      String path, Keystore keystore, CryptoHelper crypto) async {
+      String path, Keystore keystore, HiveCipher cipher) async {
     var raf = await openFile(path);
     var fileReader = BufferedFileReader(raf);
     try {
-      return await _KeyReader(fileReader).readKeys(keystore, crypto);
+      return await _KeyReader(fileReader).readKeys(keystore, cipher);
     } finally {
       await raf.close();
     }
   }
 
+  /// Not part of public API
   Future<int> framesFromFile(String path, Keystore keystore,
-      TypeRegistry registry, CryptoHelper crypto) async {
+      TypeRegistry registry, HiveCipher cipher) async {
     var bytes = await readFile(path);
-    return framesFromBytes(bytes as Uint8List, keystore, registry, crypto);
+    return framesFromBytes(bytes as Uint8List, keystore, registry, cipher);
   }
 }
 
@@ -47,13 +49,13 @@ class _KeyReader {
 
   _KeyReader(this.fileReader);
 
-  Future<int> readKeys(Keystore keystore, CryptoHelper crypto) async {
-    await _read(4);
+  Future<int> readKeys(Keystore keystore, HiveCipher cipher) async {
+    await _load(4);
     while (true) {
-      var frameOffset = fileReader.offset - _reader.availableBytes;
+      var frameOffset = fileReader.offset;
 
       if (_reader.availableBytes < 4) {
-        var available = await _read(4);
+        var available = await _load(4);
         if (available == 0) {
           break;
         } else if (available < 4) {
@@ -62,45 +64,29 @@ class _KeyReader {
       }
 
       var frameLength = _reader.peekUint32();
-      if (frameLength < 8) {
-        throw HiveError('This is an iternal error. Please open an issue on '
-            'GitHub and provide steps to reproduce this problem if possible.');
-      }
-
       if (_reader.availableBytes < frameLength) {
-        var available = await _read(frameLength);
-        if (available < frameLength) {
-          return frameOffset;
-        }
+        var available = await _load(frameLength);
+        if (available < frameLength) return frameOffset;
       }
 
-      var frameBytes = _reader.viewBytes(frameLength - 4);
-      var computedCrc = Crc32.compute(frameBytes, crc: crypto?.keyCrc ?? 0);
-      if (computedCrc != _reader.readUint32()) {
-        return frameOffset;
-      }
+      var frame = _reader.readFrame(
+        cipher: cipher,
+        lazy: true,
+        frameOffset: frameOffset,
+      );
+      if (frame == null) return frameOffset;
 
-      _reader.unskip(frameLength - 4);
-      var offsetBeforeDecode = _reader.usedBytes;
+      keystore.insert(frame, notify: false);
 
-      _reader.limitAvailableBytes(frameLength - 8);
-      var frame = Frame.decode(_reader, true, null)
-        ..length = frameLength
-        ..offset = frameOffset;
-      _reader.resetLimit();
-
-      _reader.skip(frameLength - 4 - (_reader.usedBytes - offsetBeforeDecode));
-      keystore.insert(frame, false);
+      fileReader.skip(frameLength);
     }
 
     return -1;
   }
 
-  Future<int> _read(int bytes) async {
-    fileReader.unskip(_reader?.availableBytes ?? 0);
-
+  Future<int> _load(int bytes) async {
     var loadedBytes = await fileReader.loadBytes(bytes);
-    var buffer = fileReader.viewBytes(loadedBytes);
+    var buffer = fileReader.peekBytes(loadedBytes);
     _reader = BinaryReaderImpl(buffer, null);
 
     return loadedBytes;

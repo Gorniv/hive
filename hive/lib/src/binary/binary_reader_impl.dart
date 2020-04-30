@@ -3,75 +3,82 @@ import 'dart:typed_data';
 
 import 'package:hive/hive.dart';
 import 'package:hive/src/binary/frame.dart';
+import 'package:hive/src/crypto/crc32.dart';
+import 'package:hive/src/object/hive_list_impl.dart';
 import 'package:hive/src/registry/type_registry_impl.dart';
+import 'package:hive/src/util/extensions.dart';
 
+/// Not part of public API
 class BinaryReaderImpl extends BinaryReader {
   final Uint8List _buffer;
   final ByteData _byteData;
   final int _bufferLength;
-  final TypeRegistryImpl typeRegistry;
+  final TypeRegistryImpl _typeRegistry;
 
   int _bufferLimit;
   int _offset = 0;
 
+  /// Not part of public API
   BinaryReaderImpl(this._buffer, TypeRegistry typeRegistry, [int bufferLength])
       : _byteData = ByteData.view(_buffer.buffer, _buffer.offsetInBytes),
         _bufferLength = bufferLength ?? _buffer.length,
         _bufferLimit = bufferLength ?? _buffer.length,
-        typeRegistry = typeRegistry as TypeRegistryImpl;
+        _typeRegistry = typeRegistry as TypeRegistryImpl;
 
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
   @override
   int get availableBytes => _bufferLimit - _offset;
 
   @override
   int get usedBytes => _offset;
 
-  void limitAvailableBytes(int bytes) {
+  void _limitAvailableBytes(int bytes) {
     _requireBytes(bytes);
     _bufferLimit = _offset + bytes;
   }
 
-  void resetLimit() {
+  void _resetLimit() {
     _bufferLimit = _bufferLength;
   }
 
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
   void _requireBytes(int bytes) {
     if (_offset + bytes > _bufferLimit) {
       throw RangeError('Not enough bytes available.');
     }
   }
 
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
   @override
   void skip(int bytes) {
     _requireBytes(bytes);
     _offset += bytes;
   }
 
-  void unskip(int bytes) {
-    assert(_offset >= bytes);
-    _offset -= bytes;
-  }
-
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
   @override
   int readByte() {
     _requireBytes(1);
     return _buffer[_offset++];
   }
 
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
   @override
   Uint8List viewBytes(int bytes) {
     _requireBytes(bytes);
-    var view =
-        Uint8List.view(_buffer.buffer, _buffer.offsetInBytes + _offset, bytes);
     _offset += bytes;
-    return view;
+    return _buffer.view(_offset - bytes, bytes);
   }
 
   @override
   Uint8List peekBytes(int bytes) {
     _requireBytes(bytes);
-    return Uint8List.view(
-        _buffer.buffer, _buffer.offsetInBytes + _offset, bytes);
+    return _buffer.view(_offset, bytes);
   }
 
   @override
@@ -83,26 +90,23 @@ class BinaryReaderImpl extends BinaryReader {
   @override
   int readInt32() {
     _requireBytes(4);
-    var value = _byteData.getInt32(_offset, Endian.little);
     _offset += 4;
-    return value;
+    return _byteData.getInt32(_offset - 4, Endian.little);
   }
 
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
   @override
   int readUint32() {
     _requireBytes(4);
-    return _buffer[_offset++] |
-        _buffer[_offset++] << 8 |
-        _buffer[_offset++] << 16 |
-        _buffer[_offset++] << 24;
+    _offset += 4;
+    return _buffer.readUint32(_offset - 4);
   }
 
+  /// Not part of public API
   int peekUint32() {
     _requireBytes(4);
-    return _buffer[_offset] |
-        _buffer[_offset + 1] << 8 |
-        _buffer[_offset + 2] << 16 |
-        _buffer[_offset + 3] << 24;
+    return _buffer.readUint32(_offset);
   }
 
   @override
@@ -120,8 +124,7 @@ class BinaryReaderImpl extends BinaryReader {
 
   @override
   bool readBool() {
-    _requireBytes(1);
-    return _buffer[_offset++] > 0;
+    return readByte() > 0;
   }
 
   @override
@@ -131,14 +134,6 @@ class BinaryReaderImpl extends BinaryReader {
     byteCount ??= readUint32();
     var view = viewBytes(byteCount);
     return decoder.convert(view);
-  }
-
-  @override
-  String readAsciiString([int length]) {
-    length ??= readUint32();
-    var view = viewBytes(length);
-    var str = String.fromCharCodes(view);
-    return str;
   }
 
   @override
@@ -154,9 +149,10 @@ class BinaryReaderImpl extends BinaryReader {
   List<int> readIntList([int length]) {
     length ??= readUint32();
     _requireBytes(length * 8);
+    var byteData = _byteData;
     var list = <int>[]..length = length;
     for (var i = 0; i < length; i++) {
-      list[i] = _byteData.getFloat64(_offset, Endian.little).toInt();
+      list[i] = byteData.getFloat64(_offset, Endian.little).toInt();
       _offset += 8;
     }
     return list;
@@ -166,9 +162,10 @@ class BinaryReaderImpl extends BinaryReader {
   List<double> readDoubleList([int length]) {
     length ??= readUint32();
     _requireBytes(length * 8);
+    var byteData = _byteData;
     var list = <double>[]..length = length;
     for (var i = 0; i < length; i++) {
-      list[i] = _byteData.getFloat64(_offset, Endian.little);
+      list[i] = byteData.getFloat64(_offset, Endian.little);
       _offset += 8;
     }
     return list;
@@ -212,51 +209,133 @@ class BinaryReaderImpl extends BinaryReader {
     length ??= readUint32();
     var map = <dynamic, dynamic>{};
     for (var i = 0; i < length; i++) {
-      var key = read();
-      var value = read();
-      map[key] = value;
+      map[read()] = read();
     }
     return map;
+  }
+
+  /// Not part of public API
+  dynamic readKey() {
+    var keyType = readByte();
+    if (keyType == FrameKeyType.uintT) {
+      return readUint32();
+    } else if (keyType == FrameKeyType.asciiStringT) {
+      var keyLength = readByte();
+      return String.fromCharCodes(viewBytes(keyLength));
+    } else {
+      throw HiveError('Unsupported key type. Frame might be corrupted.');
+    }
+  }
+
+  @override
+  HiveList readHiveList([int length]) {
+    length ??= readUint32();
+    var boxNameLength = readByte();
+    var boxName = String.fromCharCodes(viewBytes(boxNameLength));
+    var keys = List<dynamic>(length);
+    for (var i = 0; i < length; i++) {
+      keys[i] = readKey();
+    }
+
+    return HiveListImpl.lazy(boxName, keys);
+  }
+
+  /// Not part of public API
+  Frame readFrame({HiveCipher cipher, bool lazy = false, int frameOffset}) {
+    if (availableBytes < 4) return null;
+
+    var frameLength = readUint32();
+    if (frameLength < 8) {
+      throw HiveError(
+          'This should not happen. Please open an issue on GitHub.');
+    }
+    if (availableBytes < frameLength - 4) return null;
+
+    var crc = _buffer.readUint32(_offset + frameLength - 8);
+    var computedCrc = Crc32.compute(
+      _buffer,
+      offset: _offset - 4,
+      length: frameLength - 4,
+      crc: cipher?.calculateKeyCrc() ?? 0,
+    );
+
+    if (computedCrc != crc) return null;
+
+    _limitAvailableBytes(frameLength - 8);
+    Frame frame;
+    dynamic key = readKey();
+
+    if (availableBytes == 0) {
+      frame = Frame.deleted(key);
+    } else if (lazy) {
+      frame = Frame.lazy(key);
+    } else if (cipher == null) {
+      frame = Frame(key, read());
+    } else {
+      frame = Frame(key, readEncrypted(cipher));
+    }
+
+    frame
+      ..length = frameLength
+      ..offset = frameOffset;
+
+    skip(availableBytes);
+    _resetLimit();
+    skip(4); // Skip CRC
+
+    return frame;
   }
 
   @override
   dynamic read([int typeId]) {
     typeId ??= readByte();
-    if (typeId < FrameValueType.values.length) {
-      var typeEnum = FrameValueType.values[typeId];
-      switch (typeEnum) {
-        case FrameValueType.nullT:
-          return null;
-        case FrameValueType.intT:
-          return readInt();
-        case FrameValueType.doubleT:
-          return readDouble();
-        case FrameValueType.boolT:
-          return readBool();
-        case FrameValueType.stringT:
-          return readString();
-        case FrameValueType.byteListT:
-          return readByteList();
-        case FrameValueType.intListT:
-          return readIntList();
-        case FrameValueType.doubleListT:
-          return readDoubleList();
-        case FrameValueType.boolListT:
-          return readBoolList();
-        case FrameValueType.stringListT:
-          return readStringList();
-        case FrameValueType.listT:
-          return readList();
-        case FrameValueType.mapT:
-          return readMap();
-      }
-    } else {
-      var resolved = typeRegistry.findAdapterForTypeId(typeId);
-      if (resolved == null) {
-        throw HiveError('Cannot read, unknown typeId: $typeId. '
-            'Did you forget to register an adapter?');
-      }
-      return resolved.adapter.read(this);
+    switch (typeId) {
+      case FrameValueType.nullT:
+        return null;
+      case FrameValueType.intT:
+        return readInt();
+      case FrameValueType.doubleT:
+        return readDouble();
+      case FrameValueType.boolT:
+        return readBool();
+      case FrameValueType.stringT:
+        return readString();
+      case FrameValueType.byteListT:
+        return readByteList();
+      case FrameValueType.intListT:
+        return readIntList();
+      case FrameValueType.doubleListT:
+        return readDoubleList();
+      case FrameValueType.boolListT:
+        return readBoolList();
+      case FrameValueType.stringListT:
+        return readStringList();
+      case FrameValueType.listT:
+        return readList();
+      case FrameValueType.mapT:
+        return readMap();
+      case FrameValueType.hiveListT:
+        return readHiveList();
+      default:
+        var resolved = _typeRegistry.findAdapterForTypeId(typeId);
+        if (resolved == null) {
+          throw HiveError('Cannot read, unknown typeId: $typeId. '
+              'Did you forget to register an adapter?');
+        }
+        return resolved.adapter.read(this);
     }
+  }
+
+  /// Not part of public API
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
+  dynamic readEncrypted(HiveCipher cipher) {
+    var inpLength = availableBytes;
+    var out = Uint8List(inpLength);
+    var outLength = cipher.decrypt(_buffer, _offset, inpLength, out, 0);
+    _offset += inpLength;
+
+    var valueReader = BinaryReaderImpl(out, _typeRegistry, outLength);
+    return valueReader.read();
   }
 }

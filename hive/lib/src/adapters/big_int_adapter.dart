@@ -1,6 +1,10 @@
 import 'package:hive/hive.dart';
 
+/// Adapter for BigInt
 class BigIntAdapter extends TypeAdapter<BigInt> {
+  @override
+  final typeId = 17;
+
   @override
   BigInt read(BinaryReader reader) {
     var len = reader.readByte();
@@ -12,6 +16,6 @@ class BigIntAdapter extends TypeAdapter<BigInt> {
   void write(BinaryWriter writer, BigInt obj) {
     var intStr = obj.toString();
     writer.writeByte(intStr.length);
-    writer.writeAsciiString(intStr, writeLength: false);
+    writer.writeString(intStr, writeByteCount: false);
   }
 }
