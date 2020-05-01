@@ -41,16 +41,13 @@ abstract class DelegatingListViewMixin<E> implements List<E> {
   bool every(bool Function(E element) test) => delegate.every(test);
 
   @override
-  Iterable<T> expand<T>(Iterable<T> Function(E element) f) =>
-      delegate.expand<T>(f);
+  Iterable<T> expand<T>(Iterable<T> Function(E element) f) => delegate.expand<T>(f);
 
   @override
-  E firstWhere(bool Function(E element) test, {E Function() orElse}) =>
-      delegate.firstWhere(test, orElse: orElse);
+  E firstWhere(bool Function(E element) test, {E Function() orElse}) => delegate.firstWhere(test, orElse: orElse);
 
   @override
-  T fold<T>(T initialValue, T Function(T previousValue, E element) combine) =>
-      delegate.fold<T>(initialValue, combine);
+  T fold<T>(T initialValue, T Function(T previousValue, E element) combine) => delegate.fold<T>(initialValue, combine);
 
   @override
   Iterable<E> followedBy(Iterable<E> other) => delegate.followedBy(other);
@@ -62,12 +59,10 @@ abstract class DelegatingListViewMixin<E> implements List<E> {
   Iterable<E> getRange(int start, int end) => delegate.getRange(start, end);
 
   @override
-  int indexOf(Object element, [int start = 0]) =>
-      delegate.indexOf(element, start); // ignore: argument_type_not_assignable
+  int indexOf(Object element, [int start = 0]) => delegate.indexOf(element as E, start); // ignore: argument_type_not_assignable
 
   @override
-  int indexWhere(bool Function(E element) test, [int start = 0]) =>
-      delegate.indexWhere(test, start);
+  int indexWhere(bool Function(E element) test, [int start = 0]) => delegate.indexWhere(test, start);
 
   @override
   bool get isEmpty => delegate.isEmpty;
@@ -82,16 +77,13 @@ abstract class DelegatingListViewMixin<E> implements List<E> {
   String join([String separator = '']) => delegate.join(separator);
 
   @override
-  int lastIndexOf(Object element, [int start]) => delegate.lastIndexOf(
-      element, start); // ignore: argument_type_not_assignable
+  int lastIndexOf(Object element, [int start]) => delegate.lastIndexOf(element as E, start); // ignore: argument_type_not_assignable
 
   @override
-  int lastIndexWhere(bool Function(E element) test, [int start]) =>
-      delegate.lastIndexWhere(test, start);
+  int lastIndexWhere(bool Function(E element) test, [int start]) => delegate.lastIndexWhere(test, start);
 
   @override
-  E lastWhere(bool Function(E element) test, {E Function() orElse}) =>
-      delegate.lastWhere(test, orElse: orElse);
+  E lastWhere(bool Function(E element) test, {E Function() orElse}) => delegate.lastWhere(test, orElse: orElse);
 
   @override
   Iterable<T> map<T>(T Function(E e) f) => delegate.map<T>(f);
@@ -106,15 +98,13 @@ abstract class DelegatingListViewMixin<E> implements List<E> {
   E get single => delegate.single;
 
   @override
-  E singleWhere(bool Function(E element) test, {E Function() orElse}) =>
-      delegate.singleWhere(test, orElse: orElse);
+  E singleWhere(bool Function(E element) test, {E Function() orElse}) => delegate.singleWhere(test, orElse: orElse);
 
   @override
   Iterable<E> skip(int count) => delegate.skip(count);
 
   @override
-  Iterable<E> skipWhile(bool Function(E value) test) =>
-      delegate.skipWhile(test);
+  Iterable<E> skipWhile(bool Function(E value) test) => delegate.skipWhile(test);
 
   @override
   List<E> sublist(int start, [int end]) => delegate.sublist(start, end);
@@ -123,8 +113,7 @@ abstract class DelegatingListViewMixin<E> implements List<E> {
   Iterable<E> take(int count) => delegate.take(count);
 
   @override
-  Iterable<E> takeWhile(bool Function(E value) test) =>
-      delegate.takeWhile(test);
+  Iterable<E> takeWhile(bool Function(E value) test) => delegate.takeWhile(test);
 
   @override
   List<E> toList({bool growable = true}) => delegate.toList(growable: growable);

@@ -6,7 +6,6 @@ import 'package:hive/src/binary/frame.dart';
 import 'package:hive/src/object/hive_list_impl.dart';
 import 'package:hive/src/registry/type_registry_impl.dart';
 import 'package:test/test.dart';
-import 'package:dartx/dartx.dart';
 
 import '../common.dart';
 import '../frames.dart';
@@ -44,10 +43,7 @@ void main() {
     });
 
     test('.readByte()', () {
-      var byteData = ByteData(3)
-        ..setUint8(0, 0)
-        ..setUint8(1, 17)
-        ..setUint8(2, 255);
+      var byteData = ByteData(3)..setUint8(0, 0)..setUint8(1, 17)..setUint8(2, 255);
       var br = fromByteData(byteData);
 
       expect(br.readByte(), 0);
@@ -57,10 +53,7 @@ void main() {
     });
 
     test('.viewBytes()', () {
-      var byteData = ByteData(3)
-        ..setUint8(0, 0)
-        ..setUint8(1, 17)
-        ..setUint8(2, 255);
+      var byteData = ByteData(3)..setUint8(0, 0)..setUint8(1, 17)..setUint8(2, 255);
       var br = fromByteData(byteData);
 
       var bytes = br.viewBytes(3);
@@ -73,10 +66,7 @@ void main() {
     });
 
     test('.peekBytes()', () {
-      var byteData = ByteData(3)
-        ..setUint8(0, 0)
-        ..setUint8(1, 17)
-        ..setUint8(2, 255);
+      var byteData = ByteData(3)..setUint8(0, 0)..setUint8(1, 17)..setUint8(2, 255);
       var br = fromByteData(byteData);
 
       expect(br.peekBytes(3), [0, 17, 255]);
@@ -84,9 +74,7 @@ void main() {
     });
 
     test('.readWord()', () {
-      var byteData = ByteData(4)
-        ..setUint16(0, 0, Endian.little)
-        ..setUint16(2, 65535, Endian.little);
+      var byteData = ByteData(4)..setUint16(0, 0, Endian.little)..setUint16(2, 65535, Endian.little);
       var br = fromByteData(byteData);
 
       expect(br.readWord(), 0);
@@ -95,10 +83,7 @@ void main() {
     });
 
     test('.readInt32()', () {
-      var byteData = ByteData(12)
-        ..setInt32(0, 0, Endian.little)
-        ..setInt32(4, 65535, Endian.little)
-        ..setInt32(8, -65536, Endian.little);
+      var byteData = ByteData(12)..setInt32(0, 0, Endian.little)..setInt32(4, 65535, Endian.little)..setInt32(8, -65536, Endian.little);
       var br = fromByteData(byteData);
 
       expect(br.readInt32(), 0);
@@ -108,9 +93,7 @@ void main() {
     });
 
     test('.readUint32()', () {
-      var byteData = ByteData(8)
-        ..setUint32(0, 0, Endian.little)
-        ..setUint32(4, 4294967295, Endian.little);
+      var byteData = ByteData(8)..setUint32(0, 0, Endian.little)..setUint32(4, 4294967295, Endian.little);
       var br = fromByteData(byteData);
 
       expect(br.readUint32(), 0);
@@ -151,10 +134,7 @@ void main() {
     });
 
     test('.readBool()', () {
-      var byteData = ByteData(3)
-        ..setUint8(0, 1)
-        ..setUint8(1, 0)
-        ..setUint8(2, 2);
+      var byteData = ByteData(3)..setUint8(0, 1)..setUint8(1, 0)..setUint8(2, 2);
       var br = fromByteData(byteData);
 
       expect(br.readBool(), true);
@@ -355,33 +335,36 @@ void main() {
       test('normal', () {
         var frames = framesSetLengthOffset(testFrames, frameBytes);
         var offset = 0;
-        frames.forEachIndexed((frame, i) {
+        for (var i = 0; i < frames.length; i++) {
+          final frame = frames[i];
           var reader = BinaryReaderImpl(frameBytes[i], testRegistry);
           expectFrame(
             reader.readFrame(lazy: false, frameOffset: offset),
             frame,
           );
           offset += frameBytes[i].length;
-        });
+        }
       });
 
       test('lazy', () {
         var frames = framesSetLengthOffset(testFrames, frameBytes);
         var offset = 0;
-        frames.forEachIndexed((frame, i) {
+        for (var i = 0; i < frames.length; i++) {
+          final frame = frames[i];
           var reader = BinaryReaderImpl(frameBytes[i], testRegistry);
           expectFrame(
             reader.readFrame(lazy: true, frameOffset: offset),
             frame.toLazy(),
           );
           offset += frameBytes[i].length;
-        });
+        }
       });
 
       test('encrypted', () {
         var frames = framesSetLengthOffset(testFrames, frameBytesEncrypted);
         var offset = 0;
-        frames.forEachIndexed((frame, i) {
+        for (var i = 0; i < frames.length; i++) {
+          final frame = frames[i];
           var reader = BinaryReaderImpl(frameBytesEncrypted[i], testRegistry);
           expectFrame(
             reader.readFrame(
@@ -392,13 +375,14 @@ void main() {
             frame,
           );
           offset += frameBytesEncrypted[i].length;
-        });
+        }
       });
 
       test('lazy', () {
         var frames = framesSetLengthOffset(testFrames, frameBytesEncrypted);
         var offset = 0;
-        frames.forEachIndexed((frame, i) {
+        for (var i = 0; i < frames.length; i++) {
+          final frame = frames[i];
           var reader = BinaryReaderImpl(frameBytesEncrypted[i], testRegistry);
           expectFrame(
             reader.readFrame(
@@ -409,7 +393,7 @@ void main() {
             frame.toLazy(),
           );
           offset += frameBytesEncrypted[i].length;
-        });
+        }
       });
     });
 

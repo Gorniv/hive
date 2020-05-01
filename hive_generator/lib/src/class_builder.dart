@@ -6,7 +6,6 @@ import 'package:hive/hive.dart';
 import 'package:hive_generator/src/builder.dart';
 import 'package:hive_generator/src/helper.dart';
 import 'package:source_gen/source_gen.dart';
-import 'package:dartx/dartx.dart';
 
 class ClassBuilder extends Builder {
   var hiveListChecker = const TypeChecker.fromRuntime(HiveList);
@@ -16,9 +15,7 @@ class ClassBuilder extends Builder {
   var iterableChecker = const TypeChecker.fromRuntime(Iterable);
   var uint8ListChecker = const TypeChecker.fromRuntime(Uint8List);
 
-  ClassBuilder(
-      ClassElement cls, List<AdapterField> getters, List<AdapterField> setters)
-      : super(cls, getters, setters);
+  ClassBuilder(ClassElement cls, List<AdapterField> getters, List<AdapterField> setters) : super(cls, getters, setters);
 
   @override
   String buildRead() {
@@ -31,18 +28,17 @@ class ClassBuilder extends Builder {
     return ${cls.name}(
     ''');
 
-    var constr = cls.constructors.firstOrNullWhere((it) => it.name.isEmpty);
+    var constr = cls.constructors.firstWhere((it) => it.name.isEmpty, orElse: () => null);
     check(constr != null, 'Provide an unnamed constructor.');
 
     // The remaining fields to initialize.
     var fields = setters.toList();
 
-    var initializingParams =
-        constr.parameters.where((param) => param.isInitializingFormal);
+    var initializingParams = constr.parameters.where((param) => param.isInitializingFormal);
     for (var param in initializingParams) {
-      var field = fields.firstOrNullWhere((it) => it.name == param.name);
+      var field = fields.firstWhere((it) => it.name == param.name, orElse: () => null);
       // Final fields
-      field ??= getters.firstOrNullWhere((it) => it.name == param.name);
+      field ??= getters.firstWhere((it) => it.name == param.name, orElse: () => null);
       if (field != null) {
         if (param.isNamed) {
           code.write('${param.name}: ');
@@ -57,8 +53,7 @@ class ClassBuilder extends Builder {
     // There may still be fields to initialize that were not in the constructor
     // as initializing formals. We do so using cascades.
     for (var field in fields) {
-      code.writeln(
-          '..${field.name} = ${_cast(field.type, 'fields[${field.index}]')}');
+      code.writeln('..${field.name} = ${_cast(field.type, 'fields[${field.index}]')}');
     }
 
     code.writeln(';');
@@ -69,8 +64,7 @@ class ClassBuilder extends Builder {
   String _cast(DartType type, String variable) {
     if (hiveListChecker.isExactlyType(type)) {
       return '($variable as HiveList)?.castHiveList()';
-    } else if (iterableChecker.isAssignableFromType(type) &&
-        !isUint8List(type)) {
+    } else if (iterableChecker.isAssignableFromType(type) && !isUint8List(type)) {
       return '($variable as List)${_castIterable(type)}';
     } else if (mapChecker.isExactlyType(type)) {
       return '($variable as Map)${_castMap(type)}';
@@ -80,10 +74,7 @@ class ClassBuilder extends Builder {
   }
 
   bool isMapOrIterable(DartType type) {
-    return listChecker.isExactlyType(type) ||
-        setChecker.isExactlyType(type) ||
-        iterableChecker.isExactlyType(type) ||
-        mapChecker.isExactlyType(type);
+    return listChecker.isExactlyType(type) || setChecker.isExactlyType(type) || iterableChecker.isExactlyType(type) || mapChecker.isExactlyType(type);
   }
 
   bool isUint8List(DartType type) {

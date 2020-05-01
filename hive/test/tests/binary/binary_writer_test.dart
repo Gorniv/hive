@@ -7,7 +7,6 @@ import 'package:hive/src/object/hive_object.dart';
 import 'package:hive/src/registry/type_registry_impl.dart';
 import 'package:mockito/mockito.dart';
 import 'package:test/test.dart';
-import 'package:dartx/dartx.dart';
 
 import '../frames.dart';
 import '../mocks.dart';
@@ -267,13 +266,11 @@ void main() {
 
       bw = getWriter();
       bw.writeIntList([1, 2]);
-      expect(bw.toBytes(),
-          [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 0, 0, 0, 64]);
+      expect(bw.toBytes(), [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 0, 0, 0, 64]);
 
       bw = getWriter();
       bw.writeIntList([1, 2], writeLength: false);
-      expect(
-          bw.toBytes(), [0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 0, 0, 0, 64]);
+      expect(bw.toBytes(), [0, 0, 0, 0, 0, 0, 240, 63, 0, 0, 0, 0, 0, 0, 0, 64]);
 
       expect(() => bw.writeIntList(null), throwsA(anything));
     });
@@ -410,20 +407,21 @@ void main() {
 
     group('.writeFrame()', () {
       test('normal', () {
-        testFrames.forEachIndexed((frame, i) {
+        for (var i = 0; i < testFrames.length; i++) {
+          final frame = testFrames[i];
           var writer = BinaryWriterImpl(testRegistry);
           expect(writer.writeFrame(frame), frameBytes[i].length);
           expect(writer.toBytes(), frameBytes[i]);
-        });
+        }
       });
 
       test('encrypted', () {
-        testFrames.forEachIndexed((frame, i) {
+        for (var i = 0; i < testFrames.length; i++) {
+          final frame = testFrames[i];
           var writer = BinaryWriterImpl(testRegistry);
-          expect(writer.writeFrame(frame, cipher: testCipher),
-              frameBytesEncrypted[i].length);
+          expect(writer.writeFrame(frame, cipher: testCipher), frameBytesEncrypted[i].length);
           expect(writer.toBytes(), frameBytesEncrypted[i]);
-        });
+        }
       });
     });
 
@@ -505,8 +503,7 @@ void main() {
 
         bw = getWriter();
         bw.write(Uint8List.fromList([1, 2, 3, 4]), writeTypeId: true);
-        expect(
-            bw.toBytes(), [FrameValueType.byteListT, 4, 0, 0, 0, 1, 2, 3, 4]);
+        expect(bw.toBytes(), [FrameValueType.byteListT, 4, 0, 0, 0, 1, 2, 3, 4]);
       });
 
       test('int list', () {
